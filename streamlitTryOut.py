@@ -68,10 +68,8 @@ def extract_mfc_data(log_data, timestamps, neighbors=1):
                     "ID": dev_id,
                     "Forward Power (W)": float(power_data.get("Forward Power", "0.0 W").replace(" W", "").strip()),
                     "Reverse Power (W)": float(power_data.get("Reverse Power", "0.0 W").replace(" W", "").strip()),
-                    "TiO2 Top Pressure (mTorr)": float(source_data.get("TiO2 Pressure", "0.0 mTorr").replace(" mTorr", "").strip())
+                    "Top Pressure (mTorr)": float(source_data.get("TiO2 Pressure", "0.0 mTorr").replace(" mTorr", "").strip())
                         if isinstance(source_data.get("TiO2 Pressure"), str) else 0.0,
-                    "SiO2 Top Pressure (mTorr)": float(source_data.get("SiO2 Pressure", "0.0 mTorr").replace(" mTorr", "").strip())
-                        if isinstance(source_data.get("SiO2 Pressure"), str) else 0.0,
                     "Bottom Pressure (mTorr)": float(pressure_data.get("Bottom Pressure", "0.0"))
                 })
             except (KeyError, ValueError, AttributeError):
@@ -151,20 +149,13 @@ try:
         points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="Bottom Pressure (mTorr):Q", 
         tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("Bottom Pressure (mTorr):Q")])
         st.altair_chart((line + points).interactive().properties(height=300), use_container_width=True) 
-        #Top Pressure (TiO2 AND SIO2)
-        st.subheader("SIO2 Top Pressure (W)")
+        #Top Pressure
+        st.subheader("Top Pressure (W)")
 
-        line = alt.Chart(time_data).mark_line().encode(x="Time:T", y="SiO2 Top Pressure (mTorr):Q")
-        points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="SiO2 Top Pressure (mTorr):Q", 
-        tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("SiO2 Top Pressure (mTorr):Q")])
-        st.altair_chart((line + points).interactive().properties(height=300), use_container_width=True) 
-        st.subheader("TiO2 Top Pressure (W)")
-
-        line = alt.Chart(time_data).mark_line().encode(x="Time:T", y="TiO2 Top Pressure (mTorr):Q")
-        points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="TiO2 Top Pressure (mTorr):Q", 
-        tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("TiO2 Top Pressure (mTorr):Q")])
+        line = alt.Chart(time_data).mark_line().encode(x="Time:T", y="Top Pressure (mTorr):Q")
+        points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="Top Pressure (mTorr):Q", 
+        tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("Top Pressure (mTorr):Q")])
         st.altair_chart((line + points).interactive().properties(height=300), use_container_width=True) 
 except Exception as e:
     st.error("Could not process the uploaded file.")
     st.exception(e)
-
