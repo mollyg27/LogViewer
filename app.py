@@ -1,5 +1,5 @@
 import streamlit as st
-import json
+import ijson
 import pandas as pd
 import altair as alt
 
@@ -13,16 +13,32 @@ if not uploaded_file:
 #When file is uploaded
 @st.cache_data(show_spinner=False)
 def parse_log_file(file_obj):
-    raw_data = json.load(file_obj)
-    st.write('done loading file')
+    import ijson
+import streamlit as st
 
-    if not isinstance(raw_data, list) or not all(isinstance(entry, dict) for entry in raw_data):
-        raise ValueError("Invalid JSON format. Expected a list of timestamped dictionaries.")
+@st.cache_data(show_spinner=False)
+def parse_log_file(file_obj):
+    # Incrementally parse the JSON file using ijson
+    log = {}
+    run_id_map = {}  # run_id -> list of timestamps
+    
+    # Replace 'item' with the actual root key if needed
+    objects = ijson.items(file_obj, 'item')  # Assuming 'item' is the list root
 
+    # Initialize variables for your data
     before = 2
     after = 10
-    entries = list(raw_data)
+    entries = []
 
+    # Process each object in the JSON file
+    for entry in objects:
+        if isinstance(entry, dict):
+            entries.append(entry)  # Store entries for later processing
+
+    if not entries:
+        raise ValueError("No valid JSON objects found in the file.")
+    
+    # Process the loaded entries
     log = {}
     run_id_map = {}  # run_id -> list of timestamps
 
@@ -32,6 +48,7 @@ def parse_log_file(file_obj):
         if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False)
     ]
 
+    # Process relevant entries based on active indices
     for idx in active_indices:
         ts_main, data_main = list(entries[idx].items())[0]
         run_id = data_main.get("Step Recipe", {}).get("Run ID", "Unnamed Run")
@@ -45,6 +62,8 @@ def parse_log_file(file_obj):
 
     # Convert run_id_map sets to sorted lists
     run_id_map = {rid: sorted(ts_list) for rid, ts_list in run_id_map.items()}
+    st.write('done loading file')
+    
     return log, run_id_map
 
 @st.cache_data(show_spinner=False)
