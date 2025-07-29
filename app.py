@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import altair as alt
 import zipfile
+import time
 
 st.title("JSON Log Viewer")
 st.write("Compress Log File to Zip File before Uploading")
@@ -20,32 +21,33 @@ def parse_log_file(file_obj):
     if not isinstance(raw_data, list) or not all(isinstance(entry, dict) for entry in raw_data):
         raise ValueError("Invalid JSON format. Expected a list of timestamped dictionaries.")
 
-    before = 2
-    after = 10
+    before, after = 2, 10
     entries = list(raw_data)
 
     log = {}
-    run_id_map = {}  # run_id -> list of timestamps
+    run_id_map = {}
 
-    # Find active recipe indices
-    active_indices = [
-        i for i, entry in enumerate(entries)
-        if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False)
-    ]
+    seen = set()
 
-    for idx in active_indices:
-        ts_main, data_main = list(entries[idx].items())[0]
-        run_id = data_main.get("Step Recipe", {}).get("Run ID", "Unnamed Run")
+    for i, entry in enumerate(entries):
+        for ts, data in entry.items():
+            log[ts] = data
+            if id(entry) in seen:
+                continue
+            seen.add(id(entry))
 
-        for offset in range(-before, after + 1):
-            i = idx + offset
-            if 0 <= i < len(entries):
-                for ts, data in entries[i].items():
-                    log[ts] = data
-                    run_id_map.setdefault(run_id, set()).add(ts)
+            # Check for active recipe
+            recipe = data.get("Step Recipe", {})
+            if recipe.get("Recipe Active", False):
+                run_id = recipe.get("Run ID", "Unnamed Run")
+                for offset in range(-before, after + 1):
+                    j = i + offset
+                    if 0 <= j < len(entries):
+                        for t, d in entries[j].items():
+                            log[t] = d
+                            run_id_map.setdefault(run_id, set()).add(t)
 
-    # Convert run_id_map sets to sorted lists
-    run_id_map = {rid: sorted(ts_list) for rid, ts_list in run_id_map.items()}
+    run_id_map = {rid: sorted(ts_set) for rid, ts_set in run_id_map.items()}
     return log, run_id_map
 
 if uploaded_file.name.endswith(".zip"):
@@ -54,12 +56,16 @@ if uploaded_file.name.endswith(".zip"):
         for name in z.namelist():
             if name.endswith(".json"):
                 with z.open(name) as json_file:
+                    start_time = time.time()
                     log_data, run_map = parse_log_file(json_file)
+                    elapsed_time = time.time() - start_time
+                    st.write(f"Parsing completed in {elapsed_time:.2f} seconds.")
                 break
         else:
             st.error("No JSON file found in ZIP.")
             st.stop()
 else:
+    st.write("Warning: Long Runtime for Large Files Compress to Zip File for Faster Processing")
     log_data, run_map = parse_log_file(uploaded_file)
 
 @st.cache_data(show_spinner=False)
