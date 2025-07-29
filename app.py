@@ -7,7 +7,7 @@ import time
 
 st.title("JSON Log Viewer")
 st.write("Compress Log File to Zip File before Uploading")
-start_time = time.start()
+start_time = time.time()
 uploaded_file = st.file_uploader("Upload a JSON log file", type=["zip", "json"])
 elapsed_time = time.time() - start_time
 st.write(f"Uploaded file in {elapsed_time:.2f} seconds.")
@@ -72,7 +72,6 @@ else:
     st.write("Warning: Long Runtime for Large Files Compress to Zip File for Faster Processing")
     log_data, run_map = parse_log_file(uploaded_file)
 
-@st.cache_data(show_spinner=False)
 def extract_mfc_data(log_data, timestamps):
     selected_ts = sorted(timestamps)
     rows = []
