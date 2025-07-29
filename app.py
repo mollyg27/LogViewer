@@ -21,33 +21,32 @@ def parse_log_file(file_obj):
     if not isinstance(raw_data, list) or not all(isinstance(entry, dict) for entry in raw_data):
         raise ValueError("Invalid JSON format. Expected a list of timestamped dictionaries.")
 
-    before, after = 2, 10
+    before = 2
+    after = 10
     entries = list(raw_data)
 
     log = {}
-    run_id_map = {}
+    run_id_map = {}  # run_id -> list of timestamps
 
-    seen = set()
+    # Find active recipe indices
+    active_indices = [
+        i for i, entry in enumerate(entries)
+        if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False)
+    ]
 
-    for i, entry in enumerate(entries):
-        for ts, data in entry.items():
-            log[ts] = data
-            if id(entry) in seen:
-                continue
-            seen.add(id(entry))
+    for idx in active_indices:
+        ts_main, data_main = list(entries[idx].items())[0]
+        run_id = data_main.get("Step Recipe", {}).get("Run ID", "Unnamed Run")
 
-            # Check for active recipe
-            recipe = data.get("Step Recipe", {})
-            if recipe.get("Recipe Active", False):
-                run_id = recipe.get("Run ID", "Unnamed Run")
-                for offset in range(-before, after + 1):
-                    j = i + offset
-                    if 0 <= j < len(entries):
-                        for t, d in entries[j].items():
-                            log[t] = d
-                            run_id_map.setdefault(run_id, set()).add(t)
+        for offset in range(-before, after + 1):
+            i = idx + offset
+            if 0 <= i < len(entries):
+                for ts, data in entries[i].items():
+                    log[ts] = data
+                    run_id_map.setdefault(run_id, set()).add(ts)
 
-    run_id_map = {rid: sorted(ts_set) for rid, ts_set in run_id_map.items()}
+    # Convert run_id_map sets to sorted lists
+    run_id_map = {rid: sorted(ts_list) for rid, ts_list in run_id_map.items()}
     return log, run_id_map
 
 if uploaded_file.name.endswith(".zip"):
@@ -60,6 +59,7 @@ if uploaded_file.name.endswith(".zip"):
                     log_data, run_map = parse_log_file(json_file)
                     elapsed_time = time.time() - start_time
                     st.write(f"Parsing completed in {elapsed_time:.2f} seconds.")
+
                 break
         else:
             st.error("No JSON file found in ZIP.")
@@ -129,8 +129,10 @@ try:
     if not selected_timestamps:
         st.warning("No timestamps found for selected run.")
         st.stop()
-
+    start_time = time.time()
     mfc_df = extract_mfc_data(log_data, selected_timestamps)
+    elapsed_time = time.time() - start_time
+    st.write(f"Extracted Data in {elapsed_time:.2f} seconds.")
 
     if mfc_df.empty:
         st.warning("No valid MFC data found for this run.")
