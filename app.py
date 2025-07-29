@@ -11,26 +11,19 @@ if not uploaded_file:
     st.info("Please upload a JSON file to begin.")
     st.stop()
 #When file is uploaded
-@st.cache_data(show_spinner=False)
-def parse_log_file(file_obj):
-    import ijson
-import streamlit as st
 
 @st.cache_data(show_spinner=False)
 def parse_log_file(file_obj):
-    # Incrementally parse the JSON file using ijson
     log = {}
     run_id_map = {}  # run_id -> list of timestamps
     
-    # Replace 'item' with the actual root key if needed
-    objects = ijson.items(file_obj, 'item')  # Assuming 'item' is the list root
+    objects = ijson.items(file_obj, 'item') 
+    st.write('File has been loaded')
 
-    # Initialize variables for your data
     before = 2
     after = 10
     entries = []
 
-    # Process each object in the JSON file
     for entry in objects:
         if isinstance(entry, dict):
             entries.append(entry)  # Store entries for later processing
@@ -38,17 +31,14 @@ def parse_log_file(file_obj):
     if not entries:
         raise ValueError("No valid JSON objects found in the file.")
     
-    # Process the loaded entries
     log = {}
     run_id_map = {}  # run_id -> list of timestamps
 
-    # Find active recipe indices
     active_indices = [
         i for i, entry in enumerate(entries)
         if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False)
     ]
 
-    # Process relevant entries based on active indices
     for idx in active_indices:
         ts_main, data_main = list(entries[idx].items())[0]
         run_id = data_main.get("Step Recipe", {}).get("Run ID", "Unnamed Run")
