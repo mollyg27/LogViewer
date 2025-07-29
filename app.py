@@ -1,3 +1,4 @@
+
 import streamlit as st
 import json
 import pandas as pd
@@ -5,12 +6,11 @@ import altair as alt
 import zipfile
 import time
 
+start_time = time.time()
 st.title("JSON Log Viewer")
 st.write("Compress Log File to Zip File before Uploading")
-start_time = time.time()
 uploaded_file = st.file_uploader("Upload a JSON log file", type=["zip", "json"])
-elapsed_time = time.time() - start_time
-st.write(f"Uploaded file in {elapsed_time:.2f} seconds.")
+
 
 if not uploaded_file:
     st.info("Please upload a JSON file to begin.")
@@ -53,7 +53,6 @@ def parse_log_file(file_obj):
     return log, run_id_map
 
 if uploaded_file.name.endswith(".zip"):
-    start_time = time.time()
     with zipfile.ZipFile(uploaded_file) as z:
         # Find the first JSON file inside the zip
         for name in z.namelist():
@@ -61,8 +60,6 @@ if uploaded_file.name.endswith(".zip"):
                 with z.open(name) as json_file:
                     
                     log_data, run_map = parse_log_file(json_file)
-                    elapsed_time = time.time() - start_time
-                    st.write(f"Parsing completed in {elapsed_time:.2f} seconds.")
 
                 break
         else:
@@ -72,6 +69,7 @@ else:
     st.write("Warning: Long Runtime for Large Files Compress to Zip File for Faster Processing")
     log_data, run_map = parse_log_file(uploaded_file)
 
+@st.cache_data(show_spinner=False)
 def extract_mfc_data(log_data, timestamps):
     selected_ts = sorted(timestamps)
     rows = []
@@ -111,7 +109,6 @@ def extract_mfc_data(log_data, timestamps):
     return pd.DataFrame(rows)
 
 try:
-    start2_time = time.time()
     run_names = sorted(run_map.keys())
     selected_run = st.selectbox("Select Run", run_names)
     if not selected_run:
@@ -133,10 +130,8 @@ try:
     if not selected_timestamps:
         st.warning("No timestamps found for selected run.")
         st.stop()
-    start_time = time.time()
     mfc_df = extract_mfc_data(log_data, selected_timestamps)
-    elapsed_time = time.time() - start_time
-    st.write(f"Extracted Data in {elapsed_time:.2f} seconds.")
+
 
     if mfc_df.empty:
         st.warning("No valid MFC data found for this run.")
@@ -199,7 +194,7 @@ try:
         points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="TiO2 Top Pressure (mTorr):Q", 
         tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("TiO2 Top Pressure (mTorr):Q"),alt.Tooltip("Recipe Step:N", title = "Active Step")])
         st.altair_chart((line + points).interactive().properties(height=300), use_container_width=True) 
-        elapsed_time = time.time() - start2_time
+        elapsed_time = time.time() - start_time
         st.write(f"Total Time in {elapsed_time:.2f} seconds.")
 except Exception as e:
     st.error("Could not process the uploaded file.")
