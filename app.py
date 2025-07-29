@@ -2,7 +2,6 @@ import streamlit as st
 import json
 import pandas as pd
 import altair as alt
-from io import TextIOWrapper
 
 st.title("JSON Log Viewer")
 
@@ -11,33 +10,39 @@ uploaded_file = st.file_uploader("Upload a JSON log file", type="json")
 if not uploaded_file:
     st.info("Please upload a JSON file to begin.")
     st.stop()
-
+#When file is uploaded
 @st.cache_data(show_spinner=False)
 def parse_log_file(file_obj):
-    file_text = TextIOWrapper(file_obj, encoding='utf-8')
-    data = json.load(file_text)  # This will read the list directly
+    raw_data = json.load(file_obj)
+
+    if not isinstance(raw_data, list) or not all(isinstance(entry, dict) for entry in raw_data):
+        raise ValueError("Invalid JSON format. Expected a list of timestamped dictionaries.")
 
     before = 2
     after = 10
-    log = {}
-    run_id_map = {}
+    entries = list(raw_data)
 
+    log = {}
+    run_id_map = {}  # run_id -> list of timestamps
+
+    # Find active recipe indices
     active_indices = [
-        i for i, entry in enumerate(data)
+        i for i, entry in enumerate(entries)
         if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False)
     ]
 
     for idx in active_indices:
-        ts_main, data_main = list(data[idx].items())[0]
+        ts_main, data_main = list(entries[idx].items())[0]
         run_id = data_main.get("Step Recipe", {}).get("Run ID", "Unnamed Run")
 
         for offset in range(-before, after + 1):
             i = idx + offset
-            if 0 <= i < len(data):
-                ts, entry_data = list(data[i].items())[0]
-                log[ts] = entry_data
-                run_id_map.setdefault(run_id, set()).add(ts)
+            if 0 <= i < len(entries):
+                for ts, data in entries[i].items():
+                    log[ts] = data
+                    run_id_map.setdefault(run_id, set()).add(ts)
 
+    # Convert run_id_map sets to sorted lists
     run_id_map = {rid: sorted(ts_list) for rid, ts_list in run_id_map.items()}
     return log, run_id_map
 
