@@ -14,34 +14,70 @@ if not uploaded_file:
 
 @st.cache_data(show_spinner=False)
 def parse_log_file(file_obj):
-    log = {}
-    run_id_map = {}  # run_id -> list of timestamps
-    
-    # Replace 'item' with the actual root key if needed
-    objects = ijson.items(file_obj, 'item')  # Assuming 'item' is the list root
-    st.write('File has been loaded')
+    import collections
+    from io import TextIOWrapper
+    import itertools
 
-    # Initialize variables for your data
+    log = {}
+    run_id_map = {}
+
     before = 2
     after = 10
-    entries = []
-    buffer = []
-    index = 0
-    for entry in objects:
-        buffer.append(entry)
+    buffer = collections.deque(maxlen=before + after + 1)
 
-        # Check if this is a "recipe active" entry
-        if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False):
-            run_id = list(entry.values())[0].get("Step Recipe", {}).get("Run ID", "Unnamed Run")
+    # Create a text wrapper if the uploaded file is a binary stream
+    file_text = TextIOWrapper(file_obj, encoding='utf-8')
+    parser = ijson.basic_parse(file_text)
 
-            for offset in range(-before, after + 1):
-                i = index + offset
-                if 0 <= i < len(buffer):
-                    for ts, data in buffer[i].items():
-                        log[ts] = data
-                        run_id_map.setdefault(run_id, set()).add(ts)
-        index += 1
+    current_obj = {}
+    stack = []
+    key_stack = []
+    in_entry = False
 
+    def flatten_entry(entry):
+        """Return (timestamp, data) pair from entry like {ts: {...}}"""
+        if isinstance(entry, dict) and len(entry) == 1:
+            ts = next(iter(entry))
+            return ts, entry[ts]
+        return None, None
+    print(parser)
+    for event, value in parser:
+        if event == "start_map":
+            stack.append({})
+            key_stack.append(None)
+        elif event == "map_key":
+            key_stack[-1] = value
+        elif event == "end_map":
+            completed = stack.pop()
+            key = key_stack.pop()
+            if stack:
+                parent = stack[-1]
+                parent_key = key_stack[-1]
+                if parent_key:
+                    parent[parent_key] = completed
+            else:
+                # Top-level object completed
+                buffer.append(completed)
+
+                ts, data = flatten_entry(completed)
+                if not ts or not isinstance(data, dict):
+                    continue
+
+                recipe = data.get("Step Recipe", {})
+                if recipe.get("Recipe Active", False):
+                    run_id = recipe.get("Run ID", "Unnamed Run")
+                    # Include surrounding entries from buffer
+                    for entry in buffer:
+                        ts2, data2 = flatten_entry(entry)
+                        if ts2 and data2:
+                            log[ts2] = data2
+                            run_id_map.setdefault(run_id, set()).add(ts2)
+        else:
+            # Set value inside the most recent stack object
+            if stack and key_stack[-1]:
+                stack[-1][key_stack[-1]] = value
+
+    # Sort timestamps per run_id
     run_id_map = {rid: sorted(ts_list) for rid, ts_list in run_id_map.items()}
     return log, run_id_map
 
