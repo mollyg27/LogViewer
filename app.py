@@ -7,7 +7,7 @@ import time
 
 st.title("JSON Log Viewer")
 st.write("Compress Log File to Zip File before Uploading")
-start_time = time.time()
+start_time = time.start()
 uploaded_file = st.file_uploader("Upload a JSON log file", type=["zip", "json"])
 elapsed_time = time.time() - start_time
 st.write(f"Uploaded file in {elapsed_time:.2f} seconds.")
@@ -53,12 +53,13 @@ def parse_log_file(file_obj):
     return log, run_id_map
 
 if uploaded_file.name.endswith(".zip"):
+    start_time = time.time()
     with zipfile.ZipFile(uploaded_file) as z:
         # Find the first JSON file inside the zip
         for name in z.namelist():
             if name.endswith(".json"):
                 with z.open(name) as json_file:
-                    start_time = time.time()
+                    
                     log_data, run_map = parse_log_file(json_file)
                     elapsed_time = time.time() - start_time
                     st.write(f"Parsing completed in {elapsed_time:.2f} seconds.")
