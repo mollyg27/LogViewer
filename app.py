@@ -108,6 +108,7 @@ def extract_mfc_data(log_data, timestamps):
     return pd.DataFrame(rows)
 
 try:
+    start2_time = time.time()
     run_names = sorted(run_map.keys())
     selected_run = st.selectbox("Select Run", run_names)
     if not selected_run:
@@ -195,6 +196,8 @@ try:
         points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="TiO2 Top Pressure (mTorr):Q", 
         tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("TiO2 Top Pressure (mTorr):Q"),alt.Tooltip("Recipe Step:N", title = "Active Step")])
         st.altair_chart((line + points).interactive().properties(height=300), use_container_width=True) 
+        elapsed_time = time.time() - start2_time
+        st.write(f"Total Time in {elapsed_time:.2f} seconds.")
 except Exception as e:
     st.error("Could not process the uploaded file.")
     st.exception(e)
