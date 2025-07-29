@@ -2,16 +2,18 @@ import streamlit as st
 import json
 import pandas as pd
 import altair as alt
+import zipfile
 
 st.title("JSON Log Viewer")
 
-uploaded_file = st.file_uploader("Upload a JSON log file", type="json")
+uploaded_file = st.file_uploader("Upload a JSON log file", type=["zip", "json"])
 
 if not uploaded_file:
     st.info("Please upload a JSON file to begin.")
     st.stop()
+
+
 #When file is uploaded
-@st.cache_data(show_spinner=False)
 def parse_log_file(file_obj):
     raw_data = json.load(file_obj)
 
@@ -45,6 +47,20 @@ def parse_log_file(file_obj):
     # Convert run_id_map sets to sorted lists
     run_id_map = {rid: sorted(ts_list) for rid, ts_list in run_id_map.items()}
     return log, run_id_map
+
+if uploaded_file.name.endswith(".zip"):
+    with zipfile.ZipFile(uploaded_file) as z:
+        # Find the first JSON file inside the zip
+        for name in z.namelist():
+            if name.endswith(".json"):
+                with z.open(name) as json_file:
+                    log_data, run_map = parse_log_file(json_file)
+                break
+        else:
+            st.error("No JSON file found in ZIP.")
+            st.stop()
+else:
+    log_data, run_map = parse_log_file(uploaded_file)
 
 @st.cache_data(show_spinner=False)
 def extract_mfc_data(log_data, timestamps):
@@ -86,7 +102,6 @@ def extract_mfc_data(log_data, timestamps):
     return pd.DataFrame(rows)
 
 try:
-    log_data, run_map = parse_log_file(uploaded_file)
     run_names = sorted(run_map.keys())
     selected_run = st.selectbox("Select Run", run_names)
     if not selected_run:
