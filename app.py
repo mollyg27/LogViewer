@@ -1,3 +1,4 @@
+
 import streamlit as st
 import json
 import pandas as pd
@@ -6,7 +7,7 @@ import zipfile
 
 
 st.title("JSON Log Viewer")
-st.write("Compress Log File to Zip File before Uploading")
+st.write(":blue[**Compress Log File to Zip File before Uploading**]")
 uploaded_file = st.file_uploader("Upload a JSON log file", type=["zip", "json"])
 
 
