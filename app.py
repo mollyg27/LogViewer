@@ -1,7 +1,8 @@
 import streamlit as st
-import ijson
+import json
 import pandas as pd
 import altair as alt
+from io import TextIOWrapper
 
 st.title("JSON Log Viewer")
 
@@ -10,74 +11,33 @@ uploaded_file = st.file_uploader("Upload a JSON log file", type="json")
 if not uploaded_file:
     st.info("Please upload a JSON file to begin.")
     st.stop()
-#When file is uploaded
 
 @st.cache_data(show_spinner=False)
 def parse_log_file(file_obj):
-    import collections
-    from io import TextIOWrapper
-    import itertools
-
-    log = {}
-    run_id_map = {}
+    file_text = TextIOWrapper(file_obj, encoding='utf-8')
+    data = json.load(file_text)  # This will read the list directly
 
     before = 2
     after = 10
-    buffer = collections.deque(maxlen=before + after + 1)
+    log = {}
+    run_id_map = {}
 
-    # Create a text wrapper if the uploaded file is a binary stream
-    file_text = TextIOWrapper(file_obj, encoding='utf-8')
-    parser = ijson.basic_parse(file_text)
+    active_indices = [
+        i for i, entry in enumerate(data)
+        if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False)
+    ]
 
-    current_obj = {}
-    stack = []
-    key_stack = []
-    in_entry = False
+    for idx in active_indices:
+        ts_main, data_main = list(data[idx].items())[0]
+        run_id = data_main.get("Step Recipe", {}).get("Run ID", "Unnamed Run")
 
-    def flatten_entry(entry):
-        """Return (timestamp, data) pair from entry like {ts: {...}}"""
-        if isinstance(entry, dict) and len(entry) == 1:
-            ts = next(iter(entry))
-            return ts, entry[ts]
-        return None, None
-    print(parser)
-    for event, value in parser:
-        if event == "start_map":
-            stack.append({})
-            key_stack.append(None)
-        elif event == "map_key":
-            key_stack[-1] = value
-        elif event == "end_map":
-            completed = stack.pop()
-            key = key_stack.pop()
-            if stack:
-                parent = stack[-1]
-                parent_key = key_stack[-1]
-                if parent_key:
-                    parent[parent_key] = completed
-            else:
-                # Top-level object completed
-                buffer.append(completed)
+        for offset in range(-before, after + 1):
+            i = idx + offset
+            if 0 <= i < len(data):
+                ts, entry_data = list(data[i].items())[0]
+                log[ts] = entry_data
+                run_id_map.setdefault(run_id, set()).add(ts)
 
-                ts, data = flatten_entry(completed)
-                if not ts or not isinstance(data, dict):
-                    continue
-
-                recipe = data.get("Step Recipe", {})
-                if recipe.get("Recipe Active", False):
-                    run_id = recipe.get("Run ID", "Unnamed Run")
-                    # Include surrounding entries from buffer
-                    for entry in buffer:
-                        ts2, data2 = flatten_entry(entry)
-                        if ts2 and data2:
-                            log[ts2] = data2
-                            run_id_map.setdefault(run_id, set()).add(ts2)
-        else:
-            # Set value inside the most recent stack object
-            if stack and key_stack[-1]:
-                stack[-1][key_stack[-1]] = value
-
-    # Sort timestamps per run_id
     run_id_map = {rid: sorted(ts_list) for rid, ts_list in run_id_map.items()}
     return log, run_id_map
 
