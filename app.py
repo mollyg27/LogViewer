@@ -12,49 +12,40 @@ if not uploaded_file:
     st.stop()
 #When file is uploaded
 
+@st.cache_data(show_spinner=False)
 def parse_log_file(file_obj):
     log = {}
     run_id_map = {}  # run_id -> list of timestamps
     
-    objects = ijson.items(file_obj, 'item') 
+    # Replace 'item' with the actual root key if needed
+    objects = ijson.items(file_obj, 'item')  # Assuming 'item' is the list root
     st.write('File has been loaded')
 
+    # Initialize variables for your data
     before = 2
     after = 10
     entries = []
-
+    buffer = []
+    index = 0
     for entry in objects:
-        if isinstance(entry, dict):
-            entries.append(entry)  # Store entries for later processing
+        buffer.append(entry)
 
-    if not entries:
-        raise ValueError("No valid JSON objects found in the file.")
-    
-    log = {}
-    run_id_map = {}  # run_id -> list of timestamps
+        # Check if this is a "recipe active" entry
+        if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False):
+            run_id = list(entry.values())[0].get("Step Recipe", {}).get("Run ID", "Unnamed Run")
 
-    active_indices = [
-        i for i, entry in enumerate(entries)
-        if list(entry.values())[0].get("Step Recipe", {}).get("Recipe Active", False)
-    ]
+            for offset in range(-before, after + 1):
+                i = index + offset
+                if 0 <= i < len(buffer):
+                    for ts, data in buffer[i].items():
+                        log[ts] = data
+                        run_id_map.setdefault(run_id, set()).add(ts)
+        index += 1
 
-    for idx in active_indices:
-        ts_main, data_main = list(entries[idx].items())[0]
-        run_id = data_main.get("Step Recipe", {}).get("Run ID", "Unnamed Run")
-
-        for offset in range(-before, after + 1):
-            i = idx + offset
-            if 0 <= i < len(entries):
-                for ts, data in entries[i].items():
-                    log[ts] = data
-                    run_id_map.setdefault(run_id, set()).add(ts)
-
-    # Convert run_id_map sets to sorted lists
     run_id_map = {rid: sorted(ts_list) for rid, ts_list in run_id_map.items()}
-    st.write('done loading file')
-    
     return log, run_id_map
 
+@st.cache_data(show_spinner=False)
 def extract_mfc_data(log_data, timestamps):
     selected_ts = sorted(timestamps)
     rows = []
