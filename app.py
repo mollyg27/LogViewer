@@ -60,7 +60,6 @@ if uploaded_file.name.endswith(".zip"):
             st.error("No JSON file found in ZIP.")
             st.stop()
 else:
-    st.write("Warning: Long Runtime for Large Files Compress to Zip File for Faster Processing")
     log_data, run_map = parse_log_file(uploaded_file)
 
 @st.cache_data(show_spinner=False)
