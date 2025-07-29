@@ -12,7 +12,6 @@ if not uploaded_file:
     st.stop()
 #When file is uploaded
 
-@st.cache_data(show_spinner=False)
 def parse_log_file(file_obj):
     log = {}
     run_id_map = {}  # run_id -> list of timestamps
@@ -56,7 +55,6 @@ def parse_log_file(file_obj):
     
     return log, run_id_map
 
-@st.cache_data(show_spinner=False)
 def extract_mfc_data(log_data, timestamps):
     selected_ts = sorted(timestamps)
     rows = []
