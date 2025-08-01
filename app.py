@@ -68,7 +68,6 @@ else:
     st.write("Warning: Long Runtime for Large Files Compress to Zip File for Faster Processing")
     log_data, run_map = parse_log_file(uploaded_file)
 
-@st.cache_data(show_spinner=False)
 def extract_mfc_data(log_data, timestamps):
     selected_ts = sorted(timestamps)
     rows = []
@@ -121,9 +120,6 @@ try:
         run_id = step_recipe.get("Run ID", "Unnamed Run")
 
         run_map.setdefault(run_id, []).append(ts)
-    if not selected_run:
-        st.warning("Please select a valid run.")
-        st.stop()
 
     selected_timestamps = run_map[selected_run]
     if not selected_timestamps:
@@ -175,20 +171,19 @@ try:
         st.altair_chart((line + points).interactive().properties(height=300), use_container_width=True)
        #Bottom Pressure
         st.subheader("Bottom Pressure (W)")
-
         line = alt.Chart(time_data).mark_line().encode(x="Time:T", y="Bottom Pressure (mTorr):Q")
         points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="Bottom Pressure (mTorr):Q", 
         tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("Bottom Pressure (mTorr):Q"),alt.Tooltip("Recipe Step:N", title = "Active Step")])
         st.altair_chart((line + points).interactive().properties(height=300), use_container_width=True) 
         #Top Pressure (TiO2 AND SIO2)
         st.subheader("SIO2 Top Pressure (W)")
-
+        #top pressure SiO2
         line = alt.Chart(time_data).mark_line().encode(x="Time:T", y="SiO2 Top Pressure (mTorr):Q")
         points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="SiO2 Top Pressure (mTorr):Q", 
         tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("SiO2 Top Pressure (mTorr):Q"),alt.Tooltip("Recipe Step:N", title = "Active Step")])
         st.altair_chart((line + points).interactive().properties(height=300), use_container_width=True) 
         st.subheader("TiO2 Top Pressure (W)")
-
+        #top pressure TiO2
         line = alt.Chart(time_data).mark_line().encode(x="Time:T", y="TiO2 Top Pressure (mTorr):Q")
         points = alt.Chart(time_data).mark_point(size=30).encode(x="Time:T", y="TiO2 Top Pressure (mTorr):Q", 
         tooltip=[alt.Tooltip("Time:T", title="Timestamp", format="%H:%M:%S"),alt.Tooltip("TiO2 Top Pressure (mTorr):Q"),alt.Tooltip("Recipe Step:N", title = "Active Step")])
